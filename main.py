@@ -17,10 +17,15 @@ app.add_middleware(
 from app.api.auth_routes import router as auth_router
 from app.api.feedback_generator import router as feedback_gen_router
 from app.api.email_generator import router as email_gen_router
+from app.api.graph import router as graph_router
+from app.api.stream import router as stream_router
+
 
 app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
 app.include_router(feedback_gen_router, prefix="/api/feedback", tags=["feedback generator"])
 app.include_router(email_gen_router, prefix="/api/email", tags=["email generator"])
+app.include_router(graph_router, prefix="/api/graph", tags=["Graph Operations"])
+app.include_router(stream_router, prefix="/api/stream", tags=["Streaming"])
 
 
 @app.get("/")

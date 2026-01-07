@@ -20,6 +20,8 @@ settings = Settings()
 MONGODB_URL = os.getenv("MONGODB_URL")
 DATABASE_NAME = os.getenv("DATABASE_NAME")
 ORIGIN_URL = os.getenv("ORIGIN_URL")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4.1-nano")
 
 
 @asynccontextmanager

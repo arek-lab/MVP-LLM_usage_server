@@ -7,7 +7,7 @@ from langchain_core.messages import HumanMessage
 import asyncio
 import time
 import logging
-
+from fastapi import Request
 from app.graph.graph import graph
 
 logger = logging.getLogger(__name__)
@@ -75,9 +75,28 @@ class GraphService:
     async def start_graph(
         self, 
         cv_text: str, 
-        job_offer: Optional[str] = None
+        job_offer: Optional[str] = None,
+        request: Request = None,
+        current_user = None
     ) -> str:
         """Start graph execution in background"""
+
+        if current_user and request:
+            from app.auth.database import get_user_database
+            
+            credits = current_user.credits
+            
+            # Sprawdź czy użytkownik ma kredyty
+            if credits <= 0:
+                raise ValueError("Insufficient credits")
+            
+            # Odejmij kredyt
+            user_db = get_user_database(request)
+            updated_user = await user_db.increment_credits(current_user.id, -20)
+            new_credits = updated_user.credits if updated_user else credits - 20
+            
+            logger.info(f"Deducted 1 credit from user {current_user.id}. New balance: {new_credits}")
+
         thread_id = str(uuid4())
         config = {"configurable": {"thread_id": thread_id}}
         initial_state = {
@@ -211,7 +230,10 @@ class GraphService:
                 
         elif not has_next and is_task_done:
             response["status"] = "completed"
-            response["result"] = snapshot.values if snapshot.values else {}
+            response["result"] = {
+            "final_html": snapshot.values.get('final_html') if snapshot.values else None,
+            "pdf_result": snapshot.values.get('pdf_result') if snapshot.values else None
+    }
             
         elif has_next and not is_interrupted:
             response["status"] = "running"

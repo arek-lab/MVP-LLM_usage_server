@@ -26,7 +26,8 @@ class GraphStartResponse(BaseModel):
     """Response after starting graph execution"""
     thread_id: str = Field(..., description="Unique thread identifier")
     status: str = Field(default="started", description="Initial status")
-    message: str = Field(..., description="Status message")
+    message: str = Field(..., description="Status message"),
+    credits: int | None
 
 
 # ===== STATUS =====

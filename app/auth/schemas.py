@@ -17,6 +17,7 @@ class UserResponse(BaseModel):
     id: str
     email: str
     is_active: bool
+    credits: int | None
 
 
 class Token(BaseModel):

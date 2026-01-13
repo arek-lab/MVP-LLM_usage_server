@@ -1,7 +1,7 @@
 """
 Graph execution endpoints
 """
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, BackgroundTasks, Request
 from typing import Optional
 import os
 import tempfile
@@ -19,17 +19,22 @@ from app.api.models.schemas import (
 )
 from app.services.graph_service import GraphService
 from app.graph.utils.file_preprocessing import CVPreprocessor, CVPreprocessingError
+from app.auth.utils import get_current_user
+from app.auth.database import get_user_database
 
 router = APIRouter()
 preprocessor = CVPreprocessor()
 
 
-@router.post("/start", response_model=GraphStartResponse, responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
+@router.post("/start", 
+             response_model=GraphStartResponse, 
+             responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
 async def start_graph(
+    request: Request,
     graph_service: GraphService = Depends(get_graph_service),
     cv_file: UploadFile = File(..., description="CV file (docx/pdf)"),
-    job_offer: Optional[str] = Form(None, description="Job offer URL or description",
-     )
+    job_offer: Optional[str] = Form(None, description="Job offer URL or description"),
+    current_user = Depends(get_current_user)
 ):
     """
     Start CV processing graph
@@ -58,13 +63,22 @@ async def start_graph(
         # Start graph execution
         thread_id = await graph_service.start_graph(
             cv_text=cv_text,
-            job_offer=job_offer
+            job_offer=job_offer,
+            request=request,
+            current_user=current_user
         )
         
+        # Get updated credits after deduction
+        from app.auth.database import get_user_database
+        user_db = get_user_database(request)
+        updated_user = await user_db.increment_credits(current_user.id, 0)  # Get current value
+        new_credits = updated_user.credits if updated_user else credits - 20
+
         return GraphStartResponse(
             thread_id=thread_id,
             status="started",
-            message="Graph execution started successfully"
+            message="Graph execution started successfully",
+            credits=new_credits
         )
         
     except CVPreprocessingError as e:
@@ -125,7 +139,7 @@ async def submit_hitl_feedback(
         return HITLFeedbackResponse(
             thread_id=thread_id,
             status="resumed",
-            message="Graph resumed successfully with provided feedback"
+            message="Graph resumed successfully with provided feedback",
         )
         
     except ValueError as e:

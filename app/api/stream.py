@@ -10,6 +10,7 @@ import logging
 from app.graph.state import FileResult
 from app.services.graph_service import GraphService
 from app.services.graph_dependencies import get_graph_service
+from app.auth.utils import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 @router.get("/events/{thread_id}")
 async def stream_events(
     thread_id: str,
-    graph_service: GraphService = Depends(get_graph_service)
+    graph_service: GraphService = Depends(get_graph_service),
 ):
     """
     Stream graph status updates via SSE
@@ -55,10 +56,10 @@ async def stream_events(
                     if current_status == "completed":
                         if previous_status != "completed":
                             result = status.get("result", {})
-                            
+    
                             response_data = {
                                 "status": "completed",
-                                "message": "CV generated successfully"
+                                "message": "CV generated successfully",
                             }
                             
                             # Pydantic automatycznie serializuje do dict
@@ -69,6 +70,11 @@ async def stream_events(
                                     response_data["result"] = pdf_result.model_dump()
                                 else:
                                     response_data["result"] = pdf_result
+
+                            if "final_html" in result:
+                                if "result" not in response_data:
+                                    response_data["result"] = {}
+                                response_data["result"]["final_html"] = result["final_html"]
                             
                             yield {
                                 "event": "completed",

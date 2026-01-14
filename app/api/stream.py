@@ -33,166 +33,192 @@ async def stream_events(
     - completed: graph finished successfully
     - error: error occurred
     """
-    
+
     async def event_generator():
+        import time
+
+        previous_status = None
+        previous_node = None
+
+        consecutive_errors = 0
+        max_consecutive_errors = 5
+
+        last_ping = time.monotonic()
+
         try:
-            previous_status = None
-            previous_node = None
-            consecutive_errors = 0
-            max_consecutive_errors = 5
-            
             while True:
                 try:
-                    # Get current status
                     status = await graph_service.get_status(thread_id)
-                    
-                    # Reset error counter on successful status check
                     consecutive_errors = 0
-                    
+
                     current_status = status.get("status")
                     current_node = status.get("next_node")
-                    
-                    # FINAL STATES - always break after sending
+
+                    # ===== FINAL STATES =====
+
                     if current_status == "completed":
                         if previous_status != "completed":
                             result = status.get("result", {})
-    
+
                             response_data = {
                                 "status": "completed",
                                 "message": "CV generated successfully",
                             }
-                            
-                            # Pydantic automatycznie serializuje do dict
+
                             if "pdf_result" in result:
                                 pdf_result = result["pdf_result"]
-                                # Jeśli to już FileResult, konwertuj do dict
                                 if isinstance(pdf_result, FileResult):
                                     response_data["result"] = pdf_result.model_dump()
                                 else:
                                     response_data["result"] = pdf_result
 
                             if "final_html" in result:
-                                if "result" not in response_data:
-                                    response_data["result"] = {}
+                                response_data.setdefault("result", {})
                                 response_data["result"]["final_html"] = result["final_html"]
-                            
+
                             yield {
                                 "event": "completed",
-                                "data": json.dumps(response_data, ensure_ascii=False)
+                                "data": json.dumps(response_data, ensure_ascii=False),
                             }
                         break
-                    
+
                     if current_status == "error":
-                        # Only send if this is a new state
                         if previous_status != "error":
                             yield {
                                 "event": "error",
-                                "data": json.dumps({
-                                    "status": "error",
-                                    "error": status.get("error", "Unknown error occurred"),
-                                    "error_details": status.get("error_details")
-                                }, default=str, ensure_ascii=False)
+                                "data": json.dumps(
+                                    {
+                                        "status": "error",
+                                        "error": status.get("error", "Unknown error occurred"),
+                                        "error_details": status.get("error_details"),
+                                    },
+                                    default=str,
+                                    ensure_ascii=False,
+                                ),
                             }
                         break
-                    
-                    # Handle waiting_hitl status
+
+                    # ===== WAITING HITL =====
+
                     if current_status == "waiting_hitl":
-                        # Send HITL event only when entering this state
                         if previous_status != "waiting_hitl":
                             yield {
                                 "event": "hitl_required",
-                                "data": json.dumps({
-                                    "status": current_status,
-                                    "hitl_type": status.get("hitl_type"),
-                                    "hitl_data": status.get("hitl_data"),
-                                    "next_node": current_node,
-                                    "message": "Human input required"
-                                }, default=str, ensure_ascii=False)
+                                "data": json.dumps(
+                                    {
+                                        "status": current_status,
+                                        "hitl_type": status.get("hitl_type"),
+                                        "hitl_data": status.get("hitl_data"),
+                                        "next_node": current_node,
+                                        "message": "Human input required",
+                                    },
+                                    default=str,
+                                    ensure_ascii=False,
+                                ),
                             }
                             previous_status = current_status
                             previous_node = current_node
-                        
-                        # Continue polling - graph will resume after HITL submission
-                        await asyncio.sleep(2)
+
+                        # heartbeat nawet gdy czekamy na człowieka
+                        now = time.monotonic()
+                        if now - last_ping > 10:
+                            yield {"event": "ping", "data": ""}
+                            last_ping = now
+
+                        await asyncio.sleep(2.5)
                         continue
-                    
-                    # Handle transition from waiting_hitl to running
-                    if previous_status == "waiting_hitl" and current_status not in ["waiting_hitl", "completed", "error"]:
+
+                    # ===== RESUME AFTER HITL =====
+
+                    if previous_status == "waiting_hitl" and current_status not in (
+                        "waiting_hitl",
+                        "completed",
+                        "error",
+                    ):
                         yield {
                             "event": "status_update",
-                            "data": json.dumps({
-                                "status": current_status,
-                                "next_node": current_node,
-                                "message": "Graph resumed after HITL"
-                            }, default=str, ensure_ascii=False)
+                            "data": json.dumps(
+                                {
+                                    "status": current_status,
+                                    "next_node": current_node,
+                                    "message": "Graph resumed after HITL",
+                                },
+                                default=str,
+                                ensure_ascii=False,
+                            ),
                         }
                         previous_status = current_status
                         previous_node = current_node
-                        await asyncio.sleep(2)
-                        continue
-                    
-                    # Send update if status or node changed (and not already handled above)
-                    if (current_status != previous_status or current_node != previous_node):
+
+                    # ===== REGULAR STATUS UPDATE =====
+
+                    if current_status != previous_status or current_node != previous_node:
                         yield {
                             "event": "status_update",
-                            "data": json.dumps({
-                                "status": current_status,
-                                "next_node": current_node
-                            }, default=str, ensure_ascii=False)
+                            "data": json.dumps(
+                                {
+                                    "status": current_status,
+                                    "next_node": current_node,
+                                },
+                                default=str,
+                                ensure_ascii=False,
+                            ),
                         }
-                        
                         previous_status = current_status
                         previous_node = current_node
-                    
+
+                    # ===== HEARTBEAT (always) =====
+
+                    now = time.monotonic()
+                    if now - last_ping > 10:
+                        yield {"event": "ping", "data": ""}
+                        last_ping = now
+
                 except ValueError as e:
-                    # Thread not found or invalid
-                    logger.error(f"Thread {thread_id} error: {e}")
-                    yield {
-                        "event": "error",
-                        "data": json.dumps({
-                            "error": f"Thread error: {str(e)}",
-                            "error_type": "not_found"
-                        })
-                    }
-                    break
-                    
+                    # chwilowa niedostępność threada (restart dyno / reconnect)
+                    logger.warning(f"Thread {thread_id} temporarily unavailable: {e}")
+                    await asyncio.sleep(2.5)
+                    continue
+
                 except Exception as e:
-                    # Unexpected error during status check
                     consecutive_errors += 1
-                    logger.warning(f"Status check error for {thread_id} (attempt {consecutive_errors}): {e}")
-                    
-                    # If too many consecutive errors, give up
+                    logger.warning(
+                        f"Status check error for {thread_id} "
+                        f"(attempt {consecutive_errors}): {e}"
+                    )
+
                     if consecutive_errors >= max_consecutive_errors:
-                        logger.error(f"Too many consecutive errors for {thread_id}, closing stream")
                         yield {
                             "event": "error",
-                            "data": json.dumps({
-                                "error": f"Persistent error checking status: {str(e)}",
-                                "error_type": "status_check_failed"
-                            })
+                            "data": json.dumps(
+                                {
+                                    "error": f"Persistent error checking status: {str(e)}",
+                                    "error_type": "status_check_failed",
+                                },
+                                ensure_ascii=False,
+                            ),
                         }
                         break
-                    
-                    # Otherwise continue with longer backoff
+
                     await asyncio.sleep(3)
                     continue
-                
-                # Wait before next check
-                await asyncio.sleep(2)
-                
+
+                await asyncio.sleep(2.5)
+
         except asyncio.CancelledError:
-            # Client disconnected - clean exit
             logger.info(f"SSE stream cancelled for thread {thread_id}")
-            pass
+
         except Exception as e:
-            # Fatal stream error
             logger.error(f"Fatal SSE stream error for {thread_id}: {e}")
             yield {
                 "event": "error",
-                "data": json.dumps({
-                    "error": f"Stream error: {str(e)}",
-                    "error_type": "fatal"
-                })
+                "data": json.dumps(
+                    {
+                        "error": f"Stream error: {str(e)}",
+                        "error_type": "fatal",
+                    },
+                    ensure_ascii=False,
+                ),
             }
     
     return EventSourceResponse(event_generator())

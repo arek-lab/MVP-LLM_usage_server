@@ -56,6 +56,10 @@ async def lifespan(app: FastAPI):
     from app.services.graph_dependencies import get_graph_service
     graph_service = get_graph_service()
     await graph_service.stop()
+
+    # Close checkpointer
+    from app.graph.graph import close_checkpointer
+    await close_checkpointer()
     
     # Close MongoDB
     app.mongodb_client.close()

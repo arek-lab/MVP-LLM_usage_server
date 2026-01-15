@@ -34,4 +34,5 @@ dependencies = [
     "weasyprint>=67.0",
     "langgraph-checkpoint-postgres>=3.0.3",
     "psycopg[binary]>=3.3.2",
+    "psycopg-pool>=3.3.0",
 ]

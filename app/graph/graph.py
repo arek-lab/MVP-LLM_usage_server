@@ -8,8 +8,9 @@ from app.graph.nodes.human_review import human_review
 from app.graph.nodes.collect_all_cv_data import collect_all_cv_data
 from app.graph.nodes.generate_cv_structure import generate_cv_structure
 from app.graph.nodes.add_style_and_optimize import add_style_and_optimize
-from langgraph.checkpoint.memory import MemorySaver
+# from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg_pool import AsyncConnectionPool
 import os
 import logging
 
@@ -18,20 +19,35 @@ logger = logging.getLogger(__name__)
 
 # checkpointer = MemorySaver()
 checkpointer = None
+db_pool = None
 
 async def init_checkpointer():
     """Initialize PostgreSQL checkpointer"""
-    global checkpointer
+    global checkpointer, db_pool
     try:
-        checkpointer = await AsyncPostgresSaver.from_conn_string(
-            os.getenv("DATABASE_URL")
+        # Create connection pool
+        db_pool = AsyncConnectionPool(
+            conninfo=os.getenv("DATABASE_URL"),
+            min_size=1,
+            max_size=10
         )
+        
+        # Create checkpointer with pool
+        checkpointer = AsyncPostgresSaver(db_pool)
         await checkpointer.setup()  # Creates tables
+        
         logger.info("PostgreSQL checkpointer initialized")
         return checkpointer
     except Exception as e:
         logger.error(f"Failed to initialize checkpointer: {e}")
         raise
+
+async def close_checkpointer():
+    """Close checkpointer connection pool"""
+    global db_pool
+    if db_pool:
+        await db_pool.close()
+        logger.info("PostgreSQL connection pool closed")
 
 
 

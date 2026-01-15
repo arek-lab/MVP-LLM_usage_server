@@ -129,10 +129,11 @@ class GraphService:
             raise ValueError(f"Thread {thread_id} not found")
         
         config = self.thread_configs[thread_id]
+        graph = get_graph()
         
         try:
-            graph = get_graph()
-            snapshot = graph.get_state(config)
+            
+            snapshot = await graph.aget_state(config)
             
             if snapshot is None:
                 logger.error(f"Snapshot is None for {thread_id}")
@@ -254,10 +255,10 @@ class GraphService:
             raise ValueError(f"Thread {thread_id} not found")
         
         config = self.thread_configs[thread_id]
-        
+        graph = get_graph()
+
         try:
-            graph = get_graph()
-            snapshot = graph.get_state(config)
+            snapshot = graph.aget_state(config)
         except Exception as e:
             raise ValueError(f"Failed to get graph state: {e}")
         
@@ -271,18 +272,18 @@ class GraphService:
             human_feedback = feedback.get("additional_info")
             if not human_feedback:
                 raise ValueError("additional_info is required for this HITL type")
-            graph.update_state(config, {"additional_info_human_feedback": human_feedback})
+            graph.aupdate_state(config, {"additional_info_human_feedback": human_feedback})
             logger.info(f"Updated state with additional_info for {thread_id}")
             
         elif interrupt_node == "collect all data":
             human_feedback = feedback.get("accepted_cv_data")
             if human_feedback:
-                graph.update_state(config, {"accepted_cv_data": human_feedback})
+                graph.aupdate_state(config, {"accepted_cv_data": human_feedback})
                 logger.info(f"Updated state with accepted_cv_data for {thread_id}")
             else:
                 try:
                     cv_data = snapshot.tasks[0].interrupts[0].value.get('accepted_cv_data')
-                    graph.update_state(config, {"accepted_cv_data": cv_data})
+                    graph.aupdate_state(config, {"accepted_cv_data": cv_data})
                     logger.info(f"Updated state with existing cv_data for {thread_id}")
                 except (IndexError, AttributeError):
                     raise ValueError("No accepted_cv_data provided and no existing data found")

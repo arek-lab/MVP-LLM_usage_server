@@ -20,11 +20,17 @@ logger = logging.getLogger(__name__)
 # checkpointer = MemorySaver()
 checkpointer = None
 db_pool = None
-graph = None  # Graf będzie None do momentu inicjalizacji
+_graph = None
+
+def get_graph():
+    """Get compiled graph instance"""
+    if _graph is None:
+        raise RuntimeError("Graph not initialized. Call init_checkpointer() first.")
+    return _graph
 
 async def init_checkpointer():
     """Initialize PostgreSQL checkpointer and compile graph"""
-    global checkpointer, db_pool, graph
+    global checkpointer, db_pool, _graph
     try:
         db_pool = AsyncConnectionPool(
             conninfo=os.getenv("DATABASE_URL"),
@@ -39,8 +45,7 @@ async def init_checkpointer():
         checkpointer = AsyncPostgresSaver(db_pool)
         await checkpointer.setup()
         
-        # TERAZ skompiluj graf z checkpointerem
-        graph = flow.compile(checkpointer=checkpointer)
+        _graph = flow.compile(checkpointer=checkpointer)
         
         logger.info("PostgreSQL checkpointer initialized and graph compiled")
         return checkpointer
@@ -48,6 +53,12 @@ async def init_checkpointer():
         logger.error(f"Failed to initialize checkpointer: {e}")
         raise
 
+async def close_checkpointer():
+    """Close checkpointer connection pool"""
+    global db_pool
+    if db_pool:
+        await db_pool.close()
+        logger.info("PostgreSQL connection pool closed")
 
 
 flow = StateGraph(State)

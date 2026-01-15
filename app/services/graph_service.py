@@ -8,7 +8,7 @@ import asyncio
 import time
 import logging
 from fastapi import Request
-from app.graph.graph import graph
+from app.graph.graph import get_graph
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +117,7 @@ class GraphService:
     async def _execute_graph(self, initial_state: Dict, config: Dict):
         """Execute graph until interrupt or completion"""
         try:
+            graph = get_graph()
             async for _ in graph.astream(initial_state, config, stream_mode="updates"):
                 pass
         except Exception as e:
@@ -130,6 +131,7 @@ class GraphService:
         config = self.thread_configs[thread_id]
         
         try:
+            graph = get_graph()
             snapshot = graph.get_state(config)
             
             if snapshot is None:
@@ -254,6 +256,7 @@ class GraphService:
         config = self.thread_configs[thread_id]
         
         try:
+            graph = get_graph()
             snapshot = graph.get_state(config)
         except Exception as e:
             raise ValueError(f"Failed to get graph state: {e}")

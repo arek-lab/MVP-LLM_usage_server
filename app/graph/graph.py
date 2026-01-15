@@ -29,7 +29,8 @@ async def init_checkpointer():
         db_pool = AsyncConnectionPool(
             conninfo=os.getenv("DATABASE_URL"),
             min_size=1,
-            max_size=10
+            max_size=10,
+            kwargs={"autocommit": True}
         )
         
         # Create checkpointer with pool

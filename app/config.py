@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     # Initialize PostgreSQL checkpointer
     from app.graph.graph import init_checkpointer
     await init_checkpointer()
-    
+
     # Start graph service cleanup loop
     from app.services.graph_dependencies import get_graph_service
     graph_service = get_graph_service()

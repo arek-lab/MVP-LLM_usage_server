@@ -4,8 +4,11 @@ from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+import logging
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -26,7 +29,35 @@ GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4.1-nano")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting application...")
+    
+    # MongoDB
     app.mongodb_client = AsyncIOMotorClient(MONGODB_URL)
     app.mongodb = app.mongodb_client[DATABASE_NAME]
+    
+    # Initialize PostgreSQL checkpointer
+    from app.graph.graph import init_checkpointer
+    await init_checkpointer()
+    
+    # Start graph service cleanup loop
+    from app.services.graph_dependencies import get_graph_service
+    graph_service = get_graph_service()
+    await graph_service.start()
+    
+    logger.info("Application started successfully")
+    
     yield
+    
+    # Shutdown
+    logger.info("Shutting down application...")
+    
+    # Stop graph service
+    from app.services.graph_dependencies import get_graph_service
+    graph_service = get_graph_service()
+    await graph_service.stop()
+    
+    # Close MongoDB
     app.mongodb_client.close()
+    
+    logger.info("Application shutdown complete")

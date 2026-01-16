@@ -125,10 +125,8 @@ class GraphService:
     
     async def get_status(self, thread_id: str) -> Dict[str, Any]:
         """Get current status of graph execution"""
-        if thread_id not in self.thread_configs:
-            raise ValueError(f"Thread {thread_id} not found")
         
-        config = self.thread_configs[thread_id]
+        config = {"configurable": {"thread_id": thread_id}}
         graph = get_graph()
         
         try:
@@ -251,10 +249,8 @@ class GraphService:
     
     async def handle_hitl_feedback(self, thread_id: str, feedback: Dict[str, Any]):
         """Handle HITL feedback and resume graph execution"""
-        if thread_id not in self.thread_configs:
-            raise ValueError(f"Thread {thread_id} not found")
         
-        config = self.thread_configs[thread_id]
+        config = {"configurable": {"thread_id": thread_id}}
         graph = get_graph()
 
         try:

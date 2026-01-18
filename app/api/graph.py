@@ -180,3 +180,14 @@ async def cancel_graph(thread_id: str, graph_service: GraphService = Depends(get
     Cancel graph execution (optional - for future implementation)
     """
     raise HTTPException(status_code=501, detail="Not implemented yet")
+
+@router.get("/debug/{thread_id}")
+async def debug_thread(
+    thread_id: str,
+    graph_service: GraphService = Depends(get_graph_service)
+):
+    return {
+        "in_memory": thread_id in graph_service.thread_configs,
+        "active_task": thread_id in graph_service.active_threads,
+        "task_done": graph_service.active_threads[thread_id].done() if thread_id in graph_service.active_threads else None
+    }

@@ -1,6 +1,5 @@
 """
 Graph Service - Handles graph execution and HITL
-FIXED: Works correctly after Heroku dyno restarts
 """
 from uuid import uuid4
 from typing import Dict, Any, Optional
@@ -19,7 +18,7 @@ class GraphService:
     def __init__(self):
         self.active_threads: Dict[str, asyncio.Task] = {}
         self.thread_configs: Dict[str, Dict] = {}
-        self.thread_created_at: Dict[str, float] = {}
+        self.thread_created_at: Dict[str, float] = {}  # thread_id -> timestamp
         self._cleanup_task: Optional[asyncio.Task] = None
         self._running = False
 
@@ -51,7 +50,7 @@ class GraphService:
                     if age > THREAD_TTL:
                         logger.info(f"Cleaning up thread {thread_id} (age: {age:.0f}s)")
                         self.cleanup_thread(thread_id)
-                await asyncio.sleep(30)
+                await asyncio.sleep(30)  # Check every 30 seconds
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -87,14 +86,16 @@ class GraphService:
             
             credits = current_user.credits
             
+            # Sprawdź czy użytkownik ma kredyty
             if credits <= 0:
                 raise ValueError("Insufficient credits")
             
+            # Odejmij kredyt
             user_db = get_user_database(request)
             updated_user = await user_db.increment_credits(current_user.id, -20)
             new_credits = updated_user.credits if updated_user else credits - 20
             
-            logger.info(f"Deducted 20 credits from user {current_user.id}. New balance: {new_credits}")
+            logger.info(f"Deducted 1 credit from user {current_user.id}. New balance: {new_credits}")
 
         thread_id = str(uuid4())
         config = {"configurable": {"thread_id": thread_id}}
@@ -122,31 +123,14 @@ class GraphService:
         except Exception as e:
             logger.error(f"[GraphService] Graph execution error: {e}", exc_info=True)
     
-    def _ensure_thread_tracked(self, thread_id: str):
-        """
-        🔧 FIX: Ensure thread is tracked in memory.
-        
-        After Heroku dyno restart, memory is cleared but PostgreSQL
-        checkpointer still has the thread state. This method reconstructs
-        the in-memory tracking.
-        """
-        if thread_id not in self.thread_configs:
-            logger.info(f"Thread {thread_id} not in memory, adding to tracking")
-            self.thread_configs[thread_id] = {"configurable": {"thread_id": thread_id}}
-            self.thread_created_at[thread_id] = time.time()
-    
     async def get_status(self, thread_id: str) -> Dict[str, Any]:
-        """
-        Get current status of graph execution
-        
-        🔧 FIX: Now handles threads that exist in PostgreSQL but not in memory
-        (happens after dyno restart)
-        """
+        """Get current status of graph execution"""
         
         config = {"configurable": {"thread_id": thread_id}}
         graph = get_graph()
         
         try:
+            
             snapshot = await graph.aget_state(config)
             
             if snapshot is None:
@@ -154,11 +138,8 @@ class GraphService:
                 return {
                     "thread_id": thread_id,
                     "status": "error",
-                    "error": "Thread not found in database"
+                    "error": "Failed to get graph state: snapshot is None"
                 }
-            
-            # 🔧 FIX: Thread exists in DB, ensure it's tracked in memory
-            self._ensure_thread_tracked(thread_id)
                 
         except Exception as e:
             logger.error(f"Failed to get graph state for {thread_id}: {e}")
@@ -248,29 +229,18 @@ class GraphService:
                     "available_values": list(snapshot.values.keys()) if snapshot.values else []
                 }
                 
-        elif not has_next and (is_task_done or task is None):
-            # 🔧 FIX: Task can be None after restart, but graph can still be completed
+        elif not has_next and is_task_done:
             response["status"] = "completed"
             response["result"] = {
-                "final_html": snapshot.values.get('final_html') if snapshot.values else None,
-                "pdf_result": snapshot.values.get('pdf_result') if snapshot.values else None
-            }
+            "final_html": snapshot.values.get('final_html') if snapshot.values else None,
+            "pdf_result": snapshot.values.get('pdf_result') if snapshot.values else None
+    }
             
         elif has_next and not is_interrupted:
             response["status"] = "running"
             
-            # 🔧 FIX: If no active task but graph is running, restart it
-            if thread_id not in self.active_threads or self.active_threads[thread_id].done():
-                logger.info(f"Restarting execution for thread {thread_id} after restart")
-                task = asyncio.create_task(self._execute_graph(None, config))
-                self.active_threads[thread_id] = task
-            
-        elif not has_next and not is_task_done and task is None:
-            # 🔧 FIX: No task after restart but graph not finished
+        elif not has_next and not is_task_done:
             response["status"] = "running"
-            logger.info(f"Restarting execution for thread {thread_id} after restart")
-            task = asyncio.create_task(self._execute_graph(None, config))
-            self.active_threads[thread_id] = task
             
         else:
             response["status"] = "running"
@@ -278,14 +248,7 @@ class GraphService:
         return response
     
     async def handle_hitl_feedback(self, thread_id: str, feedback: Dict[str, Any]):
-        """
-        Handle HITL feedback and resume graph execution
-        
-        🔧 FIX: Now works after dyno restart
-        """
-        
-        # 🔧 FIX: Ensure thread is tracked
-        self._ensure_thread_tracked(thread_id)
+        """Handle HITL feedback and resume graph execution"""
         
         config = {"configurable": {"thread_id": thread_id}}
         graph = get_graph()

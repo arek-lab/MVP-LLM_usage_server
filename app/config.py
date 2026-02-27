@@ -5,6 +5,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import logging
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 
 load_dotenv()
 
@@ -25,6 +27,14 @@ DATABASE_NAME = os.getenv("DATABASE_NAME")
 ORIGIN_URL = os.getenv("ORIGIN_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GPT_MODEL = os.getenv("GPT_MODEL", "gpt-4.1-nano")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+
+def get_openai():
+    return ChatOpenAI(model=GPT_MODEL, api_key=OPENAI_API_KEY)
+def get_anthropic():
+    return ChatAnthropic(model=ANTHROPIC_MODEL, api_key=ANTHROPIC_API_KEY)
 
 
 @asynccontextmanager
@@ -38,12 +48,12 @@ async def lifespan(app: FastAPI):
     
     # Initialize PostgreSQL checkpointer
     from app.graph.graph import init_checkpointer
-    await init_checkpointer()
+    # await init_checkpointer()
 
     # Start graph service cleanup loop
     from app.services.graph_dependencies import get_graph_service
     graph_service = get_graph_service()
-    await graph_service.start()
+    # await graph_service.start()
     
     logger.info("Application started successfully")
     

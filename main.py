@@ -20,6 +20,9 @@ from app.api.email_generator import router as email_gen_router
 from app.api.graph import router as graph_router
 from app.api.stream import router as stream_router
 from app.api.text_cratfer import router as text_crafter_router
+from app.api.loveable_graph_routes import router as loveable_graph_router
+from app.api.loveable_rag_routes import router as loveable_rag_router
+from app.api.loveable_regex_check_routes import router as loveable_regex_router
 
 
 app.include_router(auth_router, prefix="/api/auth", tags=["authentication"])
@@ -28,6 +31,9 @@ app.include_router(email_gen_router, prefix="/api/email", tags=["email generator
 app.include_router(graph_router, prefix="/api/graph", tags=["Graph Operations"])
 app.include_router(stream_router, prefix="/api/stream", tags=["Streaming"])
 app.include_router(text_crafter_router, prefix="/api/text-craft", tags=["Text Crafting"])
+app.include_router(text_crafter_router, prefix="/api/regex-check", tags=["Loveable Regex Check"])
+app.include_router(text_crafter_router, prefix="/api/loveable_graph", tags=["Loveable Graph"])
+app.include_router(text_crafter_router, prefix="/api/loveable-rag", tags=["Loveable RAG"])
 
 
 @app.get("/")

@@ -18,7 +18,11 @@ async def domain_classifier(state: State) -> State:
 
     try:
         response: DomainClassification = await chain.ainvoke({})
-        return {"domain": response.domain}
+        credits = state["credits"]
+        return {
+            "domain": response.domain,
+            "credits": credits + 1
+            }
 
     except Exception as e:
         # Fallback - treat as too_vague

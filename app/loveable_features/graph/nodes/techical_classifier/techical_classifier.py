@@ -17,7 +17,10 @@ async def techical_classifier(state: State) -> State:
 
     try:
         response: TechnicalClassification = await chain.ainvoke({})
-        return {"category": response.category}
+        return {
+            "category": response.category,
+            "credits": 1
+            }
 
     except Exception as e:
         # Fallback

@@ -29,8 +29,10 @@ async def process_rag(state: State) -> State:
     chain = prompt | llm | StrOutputParser()
     try:
         response = await chain.ainvoke({})
+        credits = state["credits"]
         return {
-            "rag_insight": response
+            "rag_insight": response,
+            "credits": credits + 1
         }
     except:
         return {

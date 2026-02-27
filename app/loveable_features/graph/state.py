@@ -10,5 +10,6 @@ class State(TypedDict):
     domain: DomainClassification
     lead_judge: LeadJudgeModel
     reply: ReplyModel
-    rag_insight: str
+    rag_insight: str 
+    credits: int
     

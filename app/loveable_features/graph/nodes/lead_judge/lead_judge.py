@@ -24,6 +24,7 @@ async def lead_judge(state: State) -> State:
 
     try:
         response: LeadJudgeModel = await chain.ainvoke({})
+        credits = state["credits"]
         return {
             "lead_judge": LeadJudgeModel(
             is_lead=response.is_lead,
@@ -31,7 +32,8 @@ async def lead_judge(state: State) -> State:
             reason=response.reason,
             devdocs_query=response.devdocs_query,
             insight=response.insight
-        )
+        ),
+        "credits": credits + 10
         }
 
     except Exception as e:

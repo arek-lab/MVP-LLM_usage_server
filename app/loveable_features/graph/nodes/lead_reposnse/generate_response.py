@@ -33,11 +33,13 @@ async def generate_response(state: State) -> State:
     chain = prompt | llm
     try:
         response: ReplyModel = await chain.ainvoke({})
-        return {"reply": ReplyModel(
+        credits = state["credits"]
+        return {
+            "reply": ReplyModel(
             reply=response.reply,
             tone=response.tone,
             cta_type=response.cta_type,
-        )}
+        ), "credits": credits +1}
     except:
         {"reply": ReplyModel(
             reply="Response generation error",

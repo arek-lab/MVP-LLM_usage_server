@@ -18,7 +18,11 @@ async def intent_classifier(state: State) -> State:
 
     try:
         response: IntentClassification = await chain.ainvoke({})
-        return {"intent" : response.intent}
+        credits = state["credits"]
+        return {
+            "intent" : response.intent,
+            "credits": credits + 1
+            }
 
     except Exception as e:
         return {"category": "Intent inference error"}

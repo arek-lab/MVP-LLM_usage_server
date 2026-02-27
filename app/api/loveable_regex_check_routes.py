@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Request, UploadFile, File, HTTPException
+from fastapi import APIRouter, Request, UploadFile, File, HTTPException, Depends
 from app.loveable_features.regex_check.filters import process_messages
+from app.auth.utils import get_current_user
 
 router = APIRouter()
 
 
 @router.post("/")
-async def process_messages_route(request: Request, file: UploadFile = File(...)):
+async def process_messages_route(
+    request: Request, 
+    file: UploadFile = File(...),
+    current_user=Depends(get_current_user)):
     if not file.filename.endswith(".txt"):
         raise HTTPException(status_code=400, detail="Wymagany plik .txt")
 

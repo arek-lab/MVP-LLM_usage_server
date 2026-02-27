@@ -17,6 +17,7 @@ class DateTimeEncoder(json.JSONEncoder):
     
 def group_results(results: List[Dict]) -> Dict:
     grouped = {"leads": [], "no_leads": [], "errors": []}
+    total_credits = 0
     
     for r in results:
         if r.get("status") == "error":
@@ -30,6 +31,12 @@ def group_results(results: List[Dict]) -> Dict:
             continue
         
         result = r.get("result", {})
+        
+        # Sumuj credits ze stanu
+        credits = result.get("credits", 0)
+        if isinstance(credits, (int, float)):
+            total_credits += credits
+        
         lead_judge = result.get("lead_judge")
         if lead_judge is None:
             continue
@@ -48,7 +55,10 @@ def group_results(results: List[Dict]) -> Dict:
         else:
             grouped["no_leads"].append(entry)
     
-    return grouped
+    return {
+        "results": grouped,
+        "total_credits": total_credits,
+    }
 
 async def process_candidates_with_batching(
     candidates: List[Dict],

@@ -64,7 +64,7 @@ async def process_candidates_endpoint(
     )
 
     try:
-        updated_user = await user_db.increment_credits(current_user.id, grouped["total_credits"])
+        updated_user = await user_db.increment_credits(current_user.id, -grouped["total_credits"])
         new_credits = updated_user.credits if updated_user else credits - grouped["total_credits"]
     except ValueError as e:
         return ProcessResponse(

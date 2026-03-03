@@ -49,10 +49,14 @@ Rules:
   any technical question, even vague ones. Extract the core technical concept as 
   a short search query (2-6 words). If the question is too generic or off-topic 
   for Lovable docs, set to null.
-- insight: ONLY if is_lead=true. One concrete technical sentence that names a real
-  tradeoff, failure mode, or decision point relevant to their situation.
-  This will be used verbatim in a Discord reply — write it as a developer speaking
-  to another developer, not as documentation.
+- insight: ONLY if is_lead=true. One concrete technical sentence that names a real tradeoff, failure mode, or decision point relevant to their situation.
+This will be used verbatim in a Discord reply — write it as a developer speaking to another developer, not as documentation.
+
+## If context is too thin for a non-obvious insight:
+  Use this structure instead:
+  "The answer depends on [X] — without knowing [Y], most teams default to [Z] and regret it."
+  Example: "The answer depends on whether you have live users — without knowing that,
+  most teams skip auth migration planning and hit problems on day one."
 
   Content rules:
   BAD:  "You should think about backup strategies and scaling."

@@ -31,9 +31,9 @@ app.include_router(email_gen_router, prefix="/api/email", tags=["email generator
 app.include_router(graph_router, prefix="/api/graph", tags=["Graph Operations"])
 app.include_router(stream_router, prefix="/api/stream", tags=["Streaming"])
 app.include_router(text_crafter_router, prefix="/api/text-craft", tags=["Text Crafting"])
-app.include_router(text_crafter_router, prefix="/api/regex-check", tags=["Loveable Regex Check"])
-app.include_router(text_crafter_router, prefix="/api/loveable_graph", tags=["Loveable Graph"])
-app.include_router(text_crafter_router, prefix="/api/loveable-rag", tags=["Loveable RAG"])
+app.include_router(loveable_regex_router, prefix="/api/loveable-regex-check", tags=["Loveable Regex Check"])
+app.include_router(loveable_graph_router, prefix="/api/loveable-graph", tags=["Loveable Graph"])
+app.include_router(loveable_rag_router, prefix="/api/loveable-rag", tags=["Loveable RAG"])
 
 
 @app.get("/")

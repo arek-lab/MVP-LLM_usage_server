@@ -30,7 +30,8 @@ async def rag_query(query: str) -> str | None:
     prompt = ChatPromptTemplate.from_messages([
         ('system', RAG_PROMPT),
         ('human', f"Question: {query}.\nOriginal language: {original_language}\nRelevant excerpts from Lovable documentation:\n{context}")
-    ])
+    ], template_format="mustache")
+    
     chain = prompt | llm | StrOutputParser()
     try:
         return await chain.ainvoke({})

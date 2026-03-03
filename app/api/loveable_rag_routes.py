@@ -19,13 +19,12 @@ async def process_rag(
     req: RAGRequest,
     request: Request,
     current_user=Depends(get_current_user)):
-
     credits = current_user.credits
     if credits <= 0:
         response = RAGResponse(
             query=req.query,
             response='Liczba kredytów wynosi 0.',
-            credtis=credits
+            credits=credits
             )
         return response
 
@@ -40,7 +39,7 @@ async def process_rag(
         return RAGResponse(
             query=req.query,
             response=response,
-            credtis=0
+            credits=0
             )
 
     return RAGResponse(

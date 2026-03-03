@@ -13,7 +13,6 @@ Usage:
 
 from langchain_pinecone import PineconeVectorStore
 from langchain_openai import OpenAIEmbeddings
-from sentence_transformers import CrossEncoder
 from pinecone import Pinecone
 from app.config import OPENAI_API_KEY, PINECONE_API_KEY
 
@@ -88,10 +87,8 @@ class Retriever:
             pinecone_api_key=PINECONE_API_KEY,
         )
 
-        self.reranker = None
-        if rerank_model:
-            # logger.info("Loading reranker: %s", rerank_model)
-            self.reranker = CrossEncoder(rerank_model)
+        self.pc       = pc
+        self.reranker = rerank_model is not None
 
         # logger.info("Retriever ready.")
 
@@ -153,16 +150,23 @@ class Retriever:
         return self._rerank(query, candidates)
 
     def _rerank(self, query: str, candidates):
-        """Użyj CrossEncoder do rerankingu kandydatów."""
-        pairs  = [(query, doc.page_content) for doc in candidates]
-        scores = self.reranker.predict(pairs)
-
-        ranked = sorted(zip(scores, candidates), key=lambda x: x[0], reverse=True)
-
-        if self.score_threshold is not None:
-            ranked = [(s, d) for s, d in ranked if s >= self.score_threshold]
-
-        return [doc for _, doc in ranked[:self.final_k]]
+        docs_text = [doc.page_content for doc in candidates]
+        
+        results = self.pc.inference.rerank(
+            model="bge-reranker-v2-m3",
+            query=query,
+            documents=docs_text,
+            top_n=self.final_k,
+            return_documents=True,
+        )
+        
+        # Filtruj po score_threshold jeśli ustawiony
+        reranked = []
+        for r in results.data:
+            if self.score_threshold is None or r.score >= self.score_threshold:
+                reranked.append(candidates[r.index])
+        
+        return reranked
 
     @staticmethod
     def _format_for_llm(chunks) -> str:
